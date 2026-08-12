@@ -15,13 +15,13 @@ shareable decision audit trail.
 
 ## Try it
 
-Live (once Pages is enabled — see below): **https://oshal7.github.io/compare/**
+Live: **https://oshal7.github.io/Compare/** (note the capital **C** — GitHub Pages paths are case-sensitive).
 
 Or run locally:
 
 ```bash
 npm install
-npm run dev      # → http://localhost:5173/compare/
+npm run dev      # → http://localhost:5173/
 ```
 
 Click **"Try a sample phone comparison" → "Build comparison"** to see the whole flow with zero setup.
@@ -60,10 +60,10 @@ Set the engine in the top-right settings. All three are interchangeable behind o
 
 A GitHub Actions workflow (`.github/workflows/deploy.yml`) builds the static site and publishes it.
 **One-time setup:** in the repo, go to **Settings → Pages → Source: "GitHub Actions"**. After the next
-push, the site is live at `https://oshal7.github.io/compare/`.
+push, the site is live at `https://oshal7.github.io/Compare/`.
 
-> The Pages path is set by `base: "/compare/"` in `vite.config.ts`. For a custom domain or a
-> user/org page, change that one line to `"/"`.
+> `vite.config.ts` uses `base: "./"` (relative asset paths) so the app works at the case-sensitive
+> Pages project path regardless of casing, and would survive a custom-domain or user/org-page move.
 
 ## Tech
 

@@ -1,10 +1,11 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-// GitHub Pages project-site path: https://oshal7.github.io/compare/
-// If you move to a custom domain or a user/org page, change `base` to "/".
+// Relative base so assets resolve wherever the site is served — including the
+// case-sensitive GitHub Pages project path https://oshal7.github.io/Compare/.
+// Works with HashRouter (all routes live in the URL hash) regardless of path case.
 export default defineConfig({
-  base: "/compare/",
+  base: "./",
   plugins: [react()],
   // web-llm and tesseract pull in large workers; keep the chunk warning quiet.
   build: {
