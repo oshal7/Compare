@@ -1,5 +1,15 @@
 # AI Intelligence — How the "Smartness" Is Built
 
+> **AS-BUILT (Milestone 1).** This pipeline is implemented in `src/ai/`, running **entirely in the
+> browser** behind one `ExtractionProvider` interface with three interchangeable backends:
+> **Claude** (`src/ai/claude.ts`, browser SDK + vision, `claude-opus-5`), **WebLLM** (`src/ai/webllm.ts`,
+> keyless in-browser via WebGPU), and **Sample** (`src/ai/sample.ts`, keyless local regex parsing).
+> The detect → schema → extract → normalize → score → explain shape below is real code:
+> `detect.ts`/`llm.ts` (category + schema), `src/schemas/seeded.ts` (Tier-1 seeded schemas +
+> LLM-generated fallback for unknown categories), `src/ingest/pipeline.ts` (Tier-2 page-found rows),
+> and `src/scoring/` (the consensus engine). Every extracted value carries **confidence + provenance**,
+> and missing fields are `"Unknown"`, never zero — exactly as specified.
+
 This is the heart of Compare and the piece the product lives or dies on. The user's ask:
 
 > "The system should understand the context and put the right parameters while doing the

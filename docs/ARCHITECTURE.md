@@ -1,5 +1,19 @@
 # Architecture — Compare
 
+> **AS-BUILT (Milestone 1).** The delivered app is a **fully client-side React SPA hosted on GitHub
+> Pages** — there is no server, database, or secret key. The server-oriented design below is retained
+> as the reference target for a future backend (accounts, cross-device sync). What actually shipped:
+>
+> - **Frontend:** Vite + React + TypeScript + Tailwind + Framer Motion (`src/`).
+> - **AI:** one `ExtractionProvider` interface with three backends — **Claude** (browser SDK, your key),
+>   **WebLLM** (keyless, in-browser via WebGPU), and **Sample** (local regex parsing). See `src/ai/`.
+> - **Ingestion (no server):** paste/HTML, PDF via `pdf.js`, screenshot OCR via `tesseract.js`, URL via
+>   the keyless `r.jina.ai` reader. See `src/ingest/`.
+> - **Scoring:** the full consensus engine (`src/scoring/`), unit-tested.
+> - **Persistence:** IndexedDB (`src/store/`); **sharing** compresses the whole board into the URL
+>   (`src/lib/share.ts`). No backend.
+> - **Deploy:** GitHub Actions → GitHub Pages (`.github/workflows/deploy.yml`).
+
 > **Web-first, mobile-ready.** The system is drawn so a native mobile client can later reuse the
 > same API and services. Framework/stack names below are a **recommended proposal** to confirm
 > against the PRD, not a lock-in.

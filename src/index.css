@@ -1,0 +1,104 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(1200px 600px at 15% -10%, rgba(56, 189, 248, 0.12), transparent 60%),
+    radial-gradient(1000px 500px at 100% 0%, rgba(129, 140, 248, 0.12), transparent 55%),
+    #0f172a;
+  color: #cbd5e1;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Thin, on-theme scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #334155 transparent;
+}
+*::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 8px;
+}
+
+@layer components {
+  /* Glassmorphic surface — the product's signature look (PRD §2.1). */
+  .glass {
+    background: rgba(30, 41, 59, 0.55);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(51, 65, 85, 0.9);
+    border-radius: 16px;
+  }
+  .glass-hover {
+    transition:
+      border-color 160ms ease,
+      box-shadow 160ms ease,
+      transform 160ms ease;
+  }
+  .glass-hover:hover {
+    border-color: rgba(56, 189, 248, 0.55);
+    box-shadow: 0 0 24px -6px rgba(56, 189, 248, 0.35);
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition;
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan/70;
+  }
+  .btn-primary {
+    @apply btn bg-cyan text-base hover:shadow-glow;
+  }
+  .btn-ghost {
+    @apply btn border border-line bg-transparent text-mist hover:border-cyan/60 hover:text-white;
+  }
+  .btn-danger {
+    @apply btn border border-rose/60 bg-transparent text-rose hover:bg-rose/10;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-md px-2 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-wide;
+  }
+
+  .mono {
+    font-family: "JetBrains Mono", "Fira Code", monospace;
+  }
+
+  /* Cybernetic skeleton loader (PRD §2.2) */
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      rgba(51, 65, 85, 0.25) 0%,
+      rgba(56, 189, 248, 0.22) 50%,
+      rgba(51, 65, 85, 0.25) 100%
+    );
+    background-size: 800px 100%;
+    @apply animate-shimmer rounded-md;
+  }
+}
+
+/* Respect reduced-motion preferences globally. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

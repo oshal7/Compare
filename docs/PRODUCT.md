@@ -106,12 +106,28 @@ link**, with view/edit permissions to be defined in the PRD.
 
 ---
 
-## PRD slot
+## PRD slot — LANDED ✅ (DecisionLens v1.0)
 
-> **Paste / link the detailed PRD here when it arrives.** Then update the sections above to match
-> it, and resolve the open questions below.
+The detailed PRD landed and Milestone 1 is **built** (see [`README.md`](../README.md)). Product name
+in-app is **DecisionLens**; the repo stays `Compare`. Headline additions the PRD introduced and that
+are now implemented:
 
-_(empty — awaiting the user's PRD)_
+- **Gamified convergence** — four behavioral games (Bracket, Blind Trade-off, Regret Pre-Mortem,
+  100-Chip Allocation) feeding a mathematical **Consensus Score** with brand-anchoring + friction
+  diagnostics.
+- **3-Tier Parameter Engine** — baseline (seeded) → page-found → user-defined parameters.
+- **World-class UX** — glassmorphic dark theme, spring-physics motion, confidence badges + source
+  popovers, eliminated-graveyard, confetti on convergence, optional tactile audio.
+
+**How the build reconciles the PRD with the delivery constraints** (the user required GitHub Pages
+hosting + keyless AI):
+
+| PRD said | Built as | Why |
+|---|---|---|
+| Next.js 15 + FastAPI + Postgres/Supabase | **Vite + React SPA, fully client-side** | GitHub Pages is static — no server, DB, or secret keys. |
+| GPT-4o / Claude 3.5 + LangChain | **Claude (BYO key) + keyless in-browser WebLLM + sample**, one interchangeable interface | Repo mandates Claude; user also wanted a no-key option. |
+| Playwright / Firecrawl scraping | **r.jina.ai reader + paste/PDF/screenshot** in the browser | No server to run a headless browser. |
+| Server DB + auth | **IndexedDB + URL-encoded share links**; accounts deferred | No backend on Pages. |
 
 ## Open questions
 
