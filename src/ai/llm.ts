@@ -126,8 +126,8 @@ ${input.text.slice(0, 6000)}`;
     const summaries = input.candidates
       .map((c) => `${c.id} = ${c.title}: ${c.text.slice(0, 500)}`)
       .join("\n");
-    const user = `Category: ${input.category}. Create 3 vivid future-regret scenarios, each pitting two of these options against each other on a concrete fine-print risk (cost exposure, exclusion, hidden condition).
-Return JSON: {"scenarios": [{"prompt": "<2-3 sentence scenario ending in a choice>", "optionA": "<id>", "optionB": "<id>"}]}
+    const user = `Category: ${input.category}. Create 3 vivid future-regret scenarios, each pitting two of these options against each other on a concrete future constraint. Use one of these lenses per scenario: MONEY (a surprise cost/bill), TIME (hassle, delay, effort), or RISK (the worst realistic case). Ground each in this product's actual fine print or specs.
+Return JSON: {"scenarios": [{"prompt": "<2-3 sentence scenario ending in a clear either/or choice>", "optionA": "<id>", "optionB": "<id>"}]}
 
 OPTIONS:
 ${summaries}`;

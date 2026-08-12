@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useBoardStore } from "../store/boards";
 import { Matrix } from "../matrix/Matrix";
-import { GamesHub } from "../games/GamesHub";
 import { Results } from "../games/Results";
+import { Leanings } from "../games/Leanings";
 import { Graveyard } from "../games/Graveyard";
 import { Journey } from "../journey/Journey";
 import { buildShareUrl, decodeBoard, exportBoardJson } from "../lib/share";
@@ -16,6 +16,7 @@ export function BoardPage() {
   const setBoard = useBoardStore((s) => s.setBoard);
   const [status, setStatus] = useState<"loading" | "ok" | "missing">("loading");
   const [copied, setCopied] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -24,7 +25,7 @@ export function BoardPage() {
       if (d) {
         const decoded = decodeBoard(d);
         if (decoded) {
-          await setBoard(decoded); // import a shared board into this browser
+          await setBoard(decoded);
           if (!cancelled) setStatus("ok");
           return;
         }
@@ -51,9 +52,9 @@ export function BoardPage() {
   if (status === "missing" || !board) {
     return (
       <div className="glass p-8 text-center">
-        <p className="text-mist">That comparison isn't in this browser.</p>
+        <p className="text-mist">That showdown isn't in this browser.</p>
         <Link to="/" className="btn-primary mt-4 inline-flex">
-          Start a new comparison
+          Start a new one
         </Link>
       </div>
     );
@@ -69,8 +70,6 @@ export function BoardPage() {
     }
   }
 
-  const confPct = Math.round(board.categoryConfidence * 100);
-
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -78,8 +77,7 @@ export function BoardPage() {
           <h1 className="text-2xl font-extrabold text-white">{board.title}</h1>
           <div className="mt-1 flex items-center gap-2 text-xs text-muted">
             <span className="chip bg-indigo/15 text-indigo">{board.category}</span>
-            <span>category confidence {confPct}%</span>
-            <span>· {board.candidates.length} options</span>
+            <span>{board.candidates.length} products</span>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -89,20 +87,39 @@ export function BoardPage() {
           <button className="btn-ghost" onClick={() => exportBoardJson(board)}>
             ⬇ Export
           </button>
-          <Link to="/" className="btn-primary">
+          <Link to="/" className="btn-ghost">
             + New
+          </Link>
+          <Link to={`/c/${board.slug}/play`} className="btn-primary">
+            🎮 Play the arena
           </Link>
         </div>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
         <div className="space-y-4">
-          <Matrix board={board} />
-          <GamesHub board={board} />
           <Results board={board} />
+          {/* Parameter matrix demoted behind a disclosure — available, never the hero. */}
+          <div className="glass overflow-hidden">
+            <button
+              className="flex w-full items-center justify-between p-3 text-left"
+              onClick={() => setShowDetails((v) => !v)}
+            >
+              <span className="text-sm font-bold uppercase tracking-wide text-mist">
+                See the details — why they rank this way
+              </span>
+              <span className="text-muted">{showDetails ? "▲" : "▼"}</span>
+            </button>
+            {showDetails && (
+              <div className="border-t border-line/50">
+                <Matrix board={board} />
+              </div>
+            )}
+          </div>
           <Graveyard board={board} />
         </div>
         <div className="space-y-4">
+          <Leanings board={board} />
           <Journey board={board} />
         </div>
       </div>

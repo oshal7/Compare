@@ -14,11 +14,11 @@ const GAMES: { id: GameType; title: string; blurb: string; icon: string }[] = [
   { id: "REGRET", title: "Regret Pre-Mortem", blurb: "Fine-print risk scenarios from the future.", icon: "⚠️" },
 ];
 
-function played(board: Board, g: GameType): boolean {
-  if (g === "CHIPS") return !!board.games.chips;
-  if (g === "BRACKET") return board.games.bracket.length > 0;
-  if (g === "BLIND") return board.games.blind.length > 0;
-  return board.games.regret.length > 0;
+function playCount(board: Board, g: GameType): number {
+  if (g === "CHIPS") return board.games.chips ? 1 : 0;
+  if (g === "BRACKET") return board.games.bracket.length;
+  if (g === "BLIND") return board.games.blind.length;
+  return board.games.regret.length;
 }
 
 export function GamesHub({ board }: { board: Board }) {
@@ -26,10 +26,10 @@ export function GamesHub({ board }: { board: Board }) {
 
   return (
     <div className="glass p-4">
-      <h2 className="mb-1 text-sm font-bold uppercase tracking-wide text-mist">Convergence games</h2>
+      <h2 className="mb-1 text-sm font-bold uppercase tracking-wide text-mist">The arena</h2>
       <p className="mb-3 text-xs text-muted">
-        Play any of the four. Each one feeds a different part of the consensus score — the more you play,
-        the more confident the verdict.
+        Play any game, as many times as you like. Every round sharpens the scoreboard and teaches us what
+        you lean toward. Replay the close ones.
       </p>
       <AnimatePresence mode="wait">
         {active ? (
@@ -51,7 +51,11 @@ export function GamesHub({ board }: { board: Board }) {
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-white">{g.title}</span>
-                    {played(board, g.id) && <span className="chip bg-cyan/15 text-cyan">✓ played</span>}
+                    {playCount(board, g.id) > 0 && (
+                      <span className="chip bg-cyan/15 text-cyan">
+                        {g.id === "CHIPS" ? "✓ set" : `${playCount(board, g.id)}× played`}
+                      </span>
+                    )}
                   </div>
                   <div className="text-xs text-muted">{g.blurb}</div>
                 </div>

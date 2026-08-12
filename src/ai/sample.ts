@@ -115,9 +115,9 @@ export const sampleProvider: ExtractionProvider = {
     const cands = input.candidates;
     if (cands.length < 2) return [];
     const templates = [
-      "Two years from now, a costly event forces a claim/repair. If the fine print differs, which option protects you better?",
-      "A hidden condition you skimmed over turns out to matter a lot. Re-read both options — which one still holds up?",
-      "Priorities shift and budget gets tight. Looking only at long-term total cost, which option do you keep?",
+      "💸 Money: a surprise bill lands next year. Whichever option costs you less when things go wrong — which do you keep?",
+      "⏳ Time: you're busy and something breaks. The one that's faster/less hassle to deal with — which do you pick?",
+      "🛡️ Risk: the worst realistic scenario happens. The option that shields you best from the downside — which wins?",
     ];
     const out: RegretScenario[] = [];
     for (let i = 0; i < Math.min(3, templates.length); i++) {

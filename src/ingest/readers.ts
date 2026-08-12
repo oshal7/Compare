@@ -30,6 +30,26 @@ export async function readPdfText(file: File): Promise<string> {
   return parts.join("\n\n").trim();
 }
 
+/** Render page 1 of a PDF to a small PNG data URL for a product-card thumbnail. */
+export async function renderPdfThumb(file: File, targetWidth = 480): Promise<string | undefined> {
+  try {
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    const page = await pdf.getPage(1);
+    const base = page.getViewport({ scale: 1 });
+    const viewport = page.getViewport({ scale: targetWidth / base.width });
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.ceil(viewport.width);
+    canvas.height = Math.ceil(viewport.height);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return undefined;
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    return canvas.toDataURL("image/png");
+  } catch {
+    return undefined;
+  }
+}
+
 export async function ocrImage(file: File, onProgress?: (p: number) => void): Promise<string> {
   const Tesseract = (await import("tesseract.js")).default;
   const { data } = await Tesseract.recognize(file, "eng", {

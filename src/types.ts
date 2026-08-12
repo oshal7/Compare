@@ -44,6 +44,7 @@ export interface CandidateOption {
   id: string;
   title: string;
   brand?: string;
+  imageUrl?: string;
   sourceUrl?: string;
   rawText?: string;
   /** keyed by BoardParameter.key */

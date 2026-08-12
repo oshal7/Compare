@@ -2,30 +2,21 @@ import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { getActiveProvider, useEngineStore } from "../ai/store";
-import { buildBoard, type IngestStage, type RawInput } from "../ingest/pipeline";
-import { fetchUrlText, fileToDataUrl, ocrImage, readPdfText } from "../ingest/readers";
+import { buildBoard, type IngestStage, type RawInput, uid } from "../ingest/pipeline";
+import { fetchUrlText, fileToDataUrl, ocrImage, readPdfText, renderPdfThumb } from "../ingest/readers";
+import { cleanFilename, firstLine, parseUrlIdentity } from "../ingest/identity";
 import { useBoardStore } from "../store/boards";
+import { ProductCard, type DraftCard } from "../ui/ProductCard";
 import { fadeUp, popIn } from "../lib/motion";
 import { sfx } from "../lib/audio";
 import { SAMPLE_PHONES } from "../ingest/samples";
-
-interface Draft {
-  id: string;
-  title: string;
-  text: string;
-  images?: string[];
-  sourceUrl?: string;
-  busy?: string;
-}
-
-let n = 0;
-const draft = (title = `Option ${++n}`): Draft => ({ id: `d${Date.now()}${n}`, title, text: "" });
 
 export function Landing() {
   const nav = useNavigate();
   const setBoard = useBoardStore((s) => s.setBoard);
   const engine = useEngineStore((s) => s.engine);
-  const [drafts, setDrafts] = useState<Draft[]>([draft(), draft()]);
+  const [cards, setCards] = useState<DraftCard[]>([]);
+  const [addOpen, setAddOpen] = useState(true);
   const [url, setUrl] = useState("");
   const [building, setBuilding] = useState(false);
   const [stage, setStage] = useState<IngestStage | null>(null);
@@ -33,64 +24,75 @@ export function Landing() {
   const pdfRef = useRef<HTMLInputElement>(null);
   const imgRef = useRef<HTMLInputElement>(null);
 
-  const patch = (id: string, p: Partial<Draft>) =>
-    setDrafts((ds) => ds.map((d) => (d.id === id ? { ...d, ...p } : d)));
+  const patch = (id: string, p: Partial<DraftCard>) =>
+    setCards((cs) => cs.map((c) => (c.id === id ? { ...c, ...p } : c)));
 
-  async function onPdf(file: File, id: string) {
-    patch(id, { busy: "Reading PDF…" });
-    try {
-      const text = await readPdfText(file);
-      patch(id, { text, title: file.name.replace(/\.pdf$/i, ""), busy: undefined });
-    } catch (e) {
-      patch(id, { busy: undefined });
-      setError(e instanceof Error ? e.message : "Couldn't read that PDF.");
-    }
-  }
-
-  async function onImage(file: File, id: string) {
-    patch(id, { busy: "Reading screenshot (OCR)…" });
-    try {
-      const dataUrl = await fileToDataUrl(file);
-      const text = await ocrImage(file, (p) => patch(id, { busy: `OCR ${Math.round(p * 100)}%` }));
-      patch(id, { text, images: [dataUrl], title: file.name.replace(/\.[a-z]+$/i, ""), busy: undefined });
-    } catch (e) {
-      patch(id, { busy: undefined });
-      setError(e instanceof Error ? e.message : "Couldn't read that image.");
-    }
+  function newCard(kind: DraftCard["kind"], name: string, extra: Partial<DraftCard> = {}): DraftCard {
+    return { id: uid("card"), kind, name, text: "", status: "loading", ...extra };
   }
 
   async function addUrl() {
-    if (!url.trim()) return;
-    const d = draft(url.replace(/^https?:\/\//, "").slice(0, 40));
-    d.busy = "Fetching page…";
-    d.sourceUrl = url;
-    setDrafts((ds) => [...ds, d]);
+    const value = url.trim();
+    if (!value) return;
     setUrl("");
+    const domain = value.replace(/^https?:\/\//, "").split("/")[0];
+    const card = newCard("url", domain, { sourceUrl: value });
+    setCards((cs) => [...cs, card]);
     try {
-      const text = await fetchUrlText(url);
-      patch(d.id, { text, busy: undefined });
+      const text = await fetchUrlText(value);
+      const id = parseUrlIdentity(text);
+      patch(card.id, {
+        name: id.name || domain,
+        imageUrl: id.imageUrl,
+        text,
+        status: "ready",
+      });
     } catch (e) {
-      patch(d.id, { busy: undefined });
-      setError(e instanceof Error ? e.message : "Couldn't fetch that URL.");
+      patch(card.id, { status: "error", note: e instanceof Error ? e.message : "Fetch failed" });
     }
   }
 
+  async function addImage(file: File) {
+    const card = newCard("image", cleanFilename(file.name), { note: "Reading screenshot…" });
+    setCards((cs) => [...cs, card]);
+    try {
+      const imageUrl = await fileToDataUrl(file);
+      patch(card.id, { imageUrl, images: [imageUrl] });
+      const text = await ocrImage(file, (p) => patch(card.id, { note: `OCR ${Math.round(p * 100)}%` }));
+      patch(card.id, { text, name: firstLine(text) || cleanFilename(file.name), status: "ready", note: undefined });
+    } catch {
+      patch(card.id, { status: "ready", note: "Kept as an image", text: "" });
+    }
+  }
+
+  async function addPdf(file: File) {
+    const card = newCard("pdf", cleanFilename(file.name), { note: "Reading PDF…" });
+    setCards((cs) => [...cs, card]);
+    try {
+      const [thumb, text] = await Promise.all([renderPdfThumb(file), readPdfText(file)]);
+      patch(card.id, { imageUrl: thumb, text, name: firstLine(text) || cleanFilename(file.name), status: "ready", note: undefined });
+    } catch (e) {
+      patch(card.id, { status: "error", note: e instanceof Error ? e.message : "Couldn't read PDF" });
+    }
+  }
+
+  function addPaste() {
+    setCards((cs) => [...cs, { id: uid("card"), kind: "paste", name: "New product", text: "", status: "ready" }]);
+  }
+
   function loadSample() {
-    setDrafts(
-      SAMPLE_PHONES.map((s, i) => ({ id: `sample${i}`, title: s.title, text: s.text })),
+    setCards(
+      SAMPLE_PHONES.map((s) => ({ id: uid("card"), kind: "paste" as const, name: s.title, text: s.text, status: "ready" as const })),
     );
     sfx.click();
   }
 
-  async function build() {
+  const anyLoading = cards.some((c) => c.status === "loading");
+  const usable = cards.filter((c) => c.name.trim() && (c.kind !== "paste" || c.text.trim().length > 10));
+  const canStart = usable.length >= 2 && !anyLoading;
+
+  async function start() {
     setError("");
-    const inputs: RawInput[] = drafts
-      .filter((d) => d.text.trim().length > 10)
-      .map((d) => ({ title: d.title || "Option", text: d.text, images: d.images, sourceUrl: d.sourceUrl }));
-    if (inputs.length < 2) {
-      setError("Add at least two options with some content to compare.");
-      return;
-    }
     const provider = getActiveProvider();
     if (!provider.isReady()) {
       setError(
@@ -100,107 +102,106 @@ export function Landing() {
       );
       return;
     }
+    const inputs: RawInput[] = usable.map((c) => ({
+      title: c.name,
+      text: c.text || c.name,
+      images: c.images,
+      sourceUrl: c.sourceUrl,
+    }));
     setBuilding(true);
     try {
       const board = await buildBoard(inputs, provider, setStage);
+      // Carry over the nice card images onto candidates for the scoreboard.
+      board.candidates.forEach((cand, i) => {
+        cand.imageUrl = usable[i]?.imageUrl;
+      });
       await setBoard(board);
       sfx.confirm();
       nav(`/c/${board.slug}`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Extraction failed. Try Sample mode or a different input.");
+      setError(e instanceof Error ? e.message : "Something went wrong. Try Sample mode.");
       setBuilding(false);
     }
   }
 
   const stageText = !stage
-    ? ""
+    ? "Warming up…"
     : stage.kind === "detect"
-      ? "Detecting category…"
+      ? "Reading what kind of decision this is…"
       : stage.kind === "schema"
-        ? `Choosing parameters for ${stage.category}…`
+        ? `Picking the parameters that matter for ${stage.category}…`
         : stage.kind === "extract"
-          ? `Extracting “${stage.title}” (${stage.index + 1}/${stage.total})…`
+          ? `Mapping “${stage.title}” onto the board (${stage.index + 1}/${stage.total})…`
           : stage.kind === "tier2"
-            ? `Adding ${stage.count} page-found parameters…`
-            : "Done";
+            ? `Found ${stage.count} extra things worth comparing…`
+            : "Setting the stage…";
 
   return (
     <div>
-      <motion.section {...fadeUp} className="mb-8 text-center">
+      <motion.section {...fadeUp} className="mb-6 text-center">
         <h1 className="mx-auto max-w-3xl text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
-          Turn 10 messy tabs into <span className="text-cyan">one</span> confident decision.
+          Drop in what you're torn between.
         </h1>
         <p className="mx-auto mt-3 max-w-2xl text-mist">
-          Drop links, screenshots, PDFs, or pasted specs. DecisionLens extracts the parameters that
-          matter, then plays you through four quick games that strip out bias and converge on a winner.
+          A link, a long screenshot, a PDF, a report — anything. We'll pull the essentials, then turn it
+          into a playful showdown that narrows it to <span className="text-cyan">one</span> confident pick.
         </p>
-        <div className="mt-4 flex items-center justify-center gap-2">
-          <button className="btn-ghost" onClick={loadSample}>
-            ✨ Try a sample phone comparison
-          </button>
-        </div>
       </motion.section>
 
-      <div className="grid gap-3">
+      {/* Canvas of product cards */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <AnimatePresence initial={false}>
-          {drafts.map((d, i) => (
-            <motion.div key={d.id} {...popIn} className="glass glass-hover p-3">
-              <div className="mb-2 flex items-center gap-2">
-                <span className="chip bg-surface2 text-cyan">#{i + 1}</span>
-                <input
-                  value={d.title}
-                  onChange={(e) => patch(d.id, { title: e.target.value })}
-                  className="flex-1 bg-transparent text-sm font-semibold text-white outline-none"
-                  placeholder="Option name"
-                />
-                {d.busy && <span className="chip text-amber ring-1 ring-amber/40">{d.busy}</span>}
-                {drafts.length > 2 && (
-                  <button
-                    className="text-muted hover:text-rose"
-                    onClick={() => setDrafts((ds) => ds.filter((x) => x.id !== d.id))}
-                    title="Remove"
-                  >
-                    ✕
+          {cards.map((c) => (
+            <ProductCard
+              key={c.id}
+              card={c}
+              onName={(v) => patch(c.id, { name: v })}
+              onText={(v) => patch(c.id, { text: v })}
+              onRemove={() => setCards((cs) => cs.filter((x) => x.id !== c.id))}
+            />
+          ))}
+
+          {/* Add tile */}
+          <motion.div {...popIn} key="add-tile" className="glass flex min-h-[220px] flex-col justify-center border-dashed p-4">
+            {!addOpen ? (
+              <button className="btn-primary mx-auto" onClick={() => setAddOpen(true)}>
+                ＋ Add a product
+              </button>
+            ) : (
+              <div className="space-y-2">
+                <div className="text-center text-sm font-semibold text-mist">Add another product</div>
+                <div className="flex items-center gap-1">
+                  <input
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && addUrl()}
+                    placeholder="paste a link…"
+                    className="w-full rounded-lg border border-line bg-ink/50 px-3 py-2 text-sm text-mist outline-none focus:border-cyan"
+                  />
+                  <button className="btn-ghost !px-2" onClick={addUrl} title="Add link">
+                    →
+                  </button>
+                </div>
+                <div className="grid grid-cols-3 gap-1">
+                  <button className="btn-ghost !py-1.5 text-xs" onClick={() => imgRef.current?.click()}>
+                    Screenshot
+                  </button>
+                  <button className="btn-ghost !py-1.5 text-xs" onClick={() => pdfRef.current?.click()}>
+                    PDF
+                  </button>
+                  <button className="btn-ghost !py-1.5 text-xs" onClick={addPaste}>
+                    Paste
+                  </button>
+                </div>
+                {cards.length === 0 && (
+                  <button className="mt-1 w-full text-center text-xs text-muted hover:text-cyan" onClick={loadSample}>
+                    …or try a sample phone showdown
                   </button>
                 )}
               </div>
-              <textarea
-                value={d.text}
-                onChange={(e) => patch(d.id, { text: e.target.value })}
-                rows={3}
-                placeholder="Paste the product page, quote, or spec here…"
-                className="w-full resize-y rounded-lg border border-line bg-ink/50 p-2 text-sm text-mist outline-none focus:border-cyan"
-              />
-              {d.images && d.images[0] && (
-                <img src={d.images[0]} alt="" className="mt-2 max-h-24 rounded-md border border-line" />
-              )}
-            </motion.div>
-          ))}
+            )}
+          </motion.div>
         </AnimatePresence>
-      </div>
-
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <button className="btn-ghost" onClick={() => setDrafts((ds) => [...ds, draft()])}>
-          + Paste option
-        </button>
-        <button className="btn-ghost" onClick={() => pdfRef.current?.click()}>
-          + PDF
-        </button>
-        <button className="btn-ghost" onClick={() => imgRef.current?.click()}>
-          + Screenshot
-        </button>
-        <div className="flex items-center gap-1">
-          <input
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && addUrl()}
-            placeholder="paste a product URL…"
-            className="w-56 rounded-lg border border-line bg-ink/50 px-3 py-2 text-sm text-mist outline-none focus:border-cyan"
-          />
-          <button className="btn-ghost" onClick={addUrl}>
-            + URL
-          </button>
-        </div>
       </div>
 
       <input
@@ -210,11 +211,7 @@ export function Landing() {
         hidden
         onChange={(e) => {
           const f = e.target.files?.[0];
-          if (f) {
-            const d = draft(f.name);
-            setDrafts((ds) => [...ds, d]);
-            onPdf(f, d.id);
-          }
+          if (f) addPdf(f);
           e.target.value = "";
         }}
       />
@@ -225,25 +222,50 @@ export function Landing() {
         hidden
         onChange={(e) => {
           const f = e.target.files?.[0];
-          if (f) {
-            const d = draft(f.name);
-            setDrafts((ds) => [...ds, d]);
-            onImage(f, d.id);
-          }
+          if (f) addImage(f);
           e.target.value = "";
         }}
       />
 
       {error && (
-        <p className="mt-3 rounded-lg border border-rose/40 bg-rose/10 p-2 text-sm text-rose">{error}</p>
+        <p className="mt-4 rounded-lg border border-rose/40 bg-rose/10 p-2 text-sm text-rose">{error}</p>
       )}
 
-      <div className="mt-6 flex items-center gap-3">
-        <button className="btn-primary text-base" onClick={build} disabled={building}>
-          {building ? "Building…" : "Build comparison →"}
-        </button>
-        {building && <span className="text-sm text-cyan">{stageText}</span>}
+      {/* Sticky start bar */}
+      <div className="sticky bottom-4 z-20 mt-6 flex justify-center">
+        <motion.div layout className="glass flex items-center gap-3 px-4 py-2 shadow-glow">
+          <span className="text-sm text-mist">
+            {cards.length === 0
+              ? "Add 2+ products to begin"
+              : anyLoading
+                ? "Reading your inputs…"
+                : `${usable.length} product${usable.length === 1 ? "" : "s"} ready`}
+          </span>
+          <button className="btn-primary" disabled={!canStart} onClick={start}>
+            Start the showdown →
+          </button>
+        </motion.div>
       </div>
+
+      {/* Mapping overlay */}
+      <AnimatePresence>
+        {building && (
+          <motion.div
+            className="fixed inset-0 z-50 grid place-items-center bg-ink/85 backdrop-blur"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <div className="text-center">
+              <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-line border-t-cyan" />
+              <div className="text-lg font-bold text-white">Building your showdown</div>
+              <motion.div key={stageText} {...fadeUp} className="mt-1 text-sm text-cyan">
+                {stageText}
+              </motion.div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
