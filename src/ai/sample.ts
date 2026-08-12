@@ -1,6 +1,7 @@
 import type { CellValue, RegretScenario } from "../types";
 import type { SeedParam } from "../schemas/seeded";
-import { findSeedSchema } from "../schemas/seeded";
+import { findSeedSchema, SEED_SCHEMAS } from "../schemas/seeded";
+import { mineSchema } from "../ingest/mine";
 import type {
   CategoryGuess,
   ExtractInput,
@@ -87,22 +88,30 @@ export const sampleProvider: ExtractionProvider = {
   isReady: () => true,
 
   async detectCategory(text: string): Promise<CategoryGuess> {
-    const seed = findSeedSchema(text.slice(0, 500));
-    if (seed) return { category: seed.category, label: seed.label, confidence: 0.6 };
-    // Scan the whole text for any alias hit.
+    // Score each seeded category by whole-word alias hits over the full text,
+    // and only accept a seed when the signal is clear — otherwise fall through
+    // to a content-mined "general" schema so params stay contextual.
     const lower = text.toLowerCase();
-    for (const t of ["car", "insurance", "policy", "phone", "laptop"]) {
-      if (lower.includes(t)) {
-        const s = findSeedSchema(t);
-        if (s) return { category: s.category, label: s.label, confidence: 0.5 };
+    let best: { schema: (typeof SEED_SCHEMAS)[number]; hits: number } | null = null;
+    for (const schema of SEED_SCHEMAS) {
+      let hits = 0;
+      for (const alias of schema.aliases) {
+        const re = new RegExp(`\\b${alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "g");
+        hits += (lower.match(re) ?? []).length;
       }
+      if (hits > 0 && (!best || hits > best.hits)) best = { schema, hits };
     }
-    return { category: "general", label: "General", confidence: 0.3 };
+    if (best && best.hits >= 2) {
+      return { category: best.schema.category, label: best.schema.label, confidence: 0.6 };
+    }
+    return { category: "general", label: "Comparison", confidence: 0.3 };
   },
 
-  async proposeSchema(category: string): Promise<SeedParam[]> {
+  async proposeSchema(category: string, sampleText: string): Promise<SeedParam[]> {
     const seed = findSeedSchema(category);
-    return seed ? seed.params : GENERIC_SCHEMA;
+    if (seed) return seed.params;
+    const mined = mineSchema(sampleText ?? "");
+    return mined.length >= 3 ? mined : GENERIC_SCHEMA;
   },
 
   async extract(input: ExtractInput): Promise<ExtractResult> {

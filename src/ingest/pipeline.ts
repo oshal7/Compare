@@ -60,7 +60,13 @@ export async function buildBoard(
   const guess = await provider.detectCategory(primaryText);
 
   onStage?.({ kind: "schema", category: guess.label });
-  const tier1Seed = await resolveTier1(provider, guess.category, inputs[0]?.text ?? "");
+  // Feed every option (titled) to schema resolution so a mined/proposed schema
+  // reflects all products, not just the first.
+  const schemaSample = inputs
+    .map((i) => `### ${i.title}\n${i.text}`)
+    .join("\n\n")
+    .slice(0, 8000);
+  const tier1Seed = await resolveTier1(provider, guess.category, schemaSample);
   const parameters = toBoardParameters(tier1Seed, 1);
 
   const candidates: CandidateOption[] = [];
@@ -121,7 +127,7 @@ export async function buildBoard(
   return {
     id: uid("board"),
     slug: makeSlug(),
-    title: `${guess.label} comparison`,
+    title: guess.category === "general" ? "Your comparison" : `${guess.label} comparison`,
     category: guess.category,
     categoryConfidence: guess.confidence,
     candidates,

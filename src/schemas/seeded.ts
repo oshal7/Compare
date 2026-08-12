@@ -62,7 +62,7 @@ export const SEED_SCHEMAS: SeedSchema[] = [
   {
     category: "phone",
     label: "Phone / Electronics",
-    aliases: ["phone", "smartphone", "mobile", "iphone", "android", "laptop", "electronics"],
+    aliases: ["phone", "smartphone", "smartphones", "mobile", "iphone", "android"],
     params: [
       { key: "price", label: "Price", dataType: "CURRENCY", direction: "lower_better" },
       { key: "chip", label: "Chipset", dataType: "TEXT", direction: "neutral" },
@@ -95,7 +95,12 @@ export function toBoardParameters(params: SeedParam[], tier: 1 | 2 | 3 = 1): Boa
 
 export function findSeedSchema(category: string): SeedSchema | undefined {
   const c = category.toLowerCase().trim();
+  if (!c) return undefined;
   return SEED_SCHEMAS.find(
-    (s) => s.category === c || s.aliases.some((a) => c.includes(a) || a.includes(c)),
+    (s) =>
+      s.category === c ||
+      s.aliases.includes(c) ||
+      // whole-word alias match against a short category slug/phrase
+      s.aliases.some((a) => new RegExp(`\\b${a.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(c)),
   );
 }
